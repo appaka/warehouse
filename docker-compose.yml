@@ -1,0 +1,30 @@
+version: "3.5"
+
+services:
+  postgres:
+    image: postgres:12.1
+    container_name: ${COMPOSE_PROJECT_NAME}_sql
+    restart: always
+    # to see all queries in the docker log
+    command: ["postgres", "-c", "log_statement=all"]
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - ./docker/db-fixtures/:/docker-entrypoint-initdb.d/:delegated
+      - postgres:/var/lib/postgresql/data
+    ports:
+      - 54320:5432
+
+  adminer:
+    image: adminer
+    container_name: ${COMPOSE_PROJECT_NAME}_adminer
+    restart: always
+    environment:
+      ADMINER_DEFAULT_SERVER: ${COMPOSE_PROJECT_NAME}_sql
+    ports:
+      - 8080:8080
+
+volumes:
+  postgres:
