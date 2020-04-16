@@ -30,6 +30,17 @@ type AddStockResponse struct {
 	Quantity  int    `json:"quantity"`
 }
 
+type StockList struct {
+	Warehouse string `json:"warehouse"`
+	Quantity  int    `json:"quantity"`
+}
+type GetStockResponse struct {
+	Success bool        `json:"success"`
+	Message string      `json:"message"`
+	Sku     string      `json:"sku"`
+	Stock   []StockList `json:"data"`
+}
+
 var db *sql.DB
 
 func DbInsertTransaction(sku string, warehouse string, quantity int, description string) {
