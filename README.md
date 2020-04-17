@@ -1,6 +1,6 @@
-# warehouse
+# appaka warehouse
 
-warehouse stock manager
+a simple warehouse stock manager
 
 
 ## todo

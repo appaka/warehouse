@@ -16,7 +16,10 @@ import (
 	"time"
 )
 
-const VERSION = "0.0.1a"
+const TITLE = "Appaka Warehouse"
+const YEAR = 2020
+const VERSION = "v0.0.1-alpha.1"
+const AUTHOR = "Javier Pérez <javier@appaka.ch>"
 
 type App struct {
 	db database.Database
@@ -59,7 +62,7 @@ func (app *App) Init() {
 	portNumber, _ := strconv.Atoi(getenv("HTTP_PORT", "8000"))
 
 	// Header
-	app.showVersion()
+	app.showHeader()
 
 	// Database connection
 	app.db = database.Database{}
@@ -89,8 +92,8 @@ func (app *App) Init() {
 	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", portNumber), router))
 }
 
-func (app *App) showVersion() {
-	fmt.Printf("Appaka Warehouse 2020 v%s, by Javier Perez <javier@appaka.ch>\n", VERSION)
+func (app *App) showHeader() {
+	fmt.Printf("%s %d %s by %s\n", TITLE, YEAR, VERSION, AUTHOR)
 }
 
 func (app *App) log(message string) {
