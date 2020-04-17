@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"time"
 )
 
 const VERSION = "0.0.1"
@@ -91,6 +92,11 @@ func (app *App) showVersion() {
 	fmt.Printf("Appaka Warehouse v%s, by Javier Perez <javier@appaka.ch>, 2020\n", VERSION)
 }
 
+func (app *App) log(message string) {
+	// TODO: write to log file
+	fmt.Printf("%s - %s\n", time.Now().Format(time.RFC3339), message)
+}
+
 // POST http://localhost:8000/api/{sku}/{warehouse}/{quantity}
 func (app *App) apiAddStock(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
@@ -106,9 +112,14 @@ func (app *App) apiAddStock(w http.ResponseWriter, r *http.Request) {
 	//	log.Fatal(getBodyErr)
 	//}
 	//var description = Description.Text
+	description := "description"
+
+	app.log(fmt.Sprintf("adding stock (%d) to product %s on wrehouse %s", quantity, sku, warehouse))
 
 	// save data to database
-	newStock := app.db.DoAddStock(sku, warehouse, quantity, "description")
+	newStock := app.db.DoAddStock(sku, warehouse, quantity, description)
+
+	app.log(fmt.Sprintf("new stock for product %s on %s = %d", sku, warehouse, newStock))
 
 	// build response
 	response := AddStockResponse{
@@ -147,4 +158,6 @@ func (app *App) apiGetHistory(w http.ResponseWriter, r *http.Request) {
 func main() {
 	app := App{}
 	app.Init()
+
+	defer app.db.Close()
 }

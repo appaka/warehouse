@@ -16,7 +16,6 @@ func (database *Database) Init(dbHost string, dbPort int, dbUser string, dbPassw
 	if err != nil {
 		panic(err)
 	}
-	defer conn.Close()
 
 	err = conn.Ping()
 	if err != nil {
@@ -24,6 +23,13 @@ func (database *Database) Init(dbHost string, dbPort int, dbUser string, dbPassw
 	}
 
 	database.DB = conn
+}
+
+func (database *Database) Close() {
+	err := database.DB.Close()
+	if err != nil {
+		panic(err)
+	}
 }
 
 // PUBLIC
@@ -78,6 +84,7 @@ func (database *Database) updateStockAdd(sku string, warehouse string, quantity 
 }
 
 func (database *Database) getStockBySkuWarehouse(sku string, warehouse string) int {
+	// TODO: get data from Redis instead of Postgres
 	var totalStock []byte
 	sql := "SELECT quantity FROM stock WHERE sku = $1 AND warehouse = $2;"
 	r := database.DB.QueryRow(sql, sku, warehouse)
