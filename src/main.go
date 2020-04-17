@@ -3,10 +3,10 @@
 package main
 
 import (
-	"./database"
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/appaka/warehouse/database"
 	"github.com/gorilla/mux"
 	_ "github.com/lib/pq"
 	"log"
