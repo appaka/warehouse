@@ -3,6 +3,7 @@ package database
 import (
 	"database/sql"
 	"fmt"
+	"log"
 	"strconv"
 )
 
@@ -34,7 +35,7 @@ func (database *Database) Close() {
 
 // PUBLIC
 
-func (database *Database) DoAddStock(sku string, warehouse string, quantity int, description string) int {
+func (database *Database) DoUpdateStock(sku string, warehouse string, quantity int, description string) int {
 	// BEGIN
 	tx, beginErr := database.DB.Begin()
 	if beginErr != nil {
@@ -43,7 +44,7 @@ func (database *Database) DoAddStock(sku string, warehouse string, quantity int,
 
 	// SQL TRANSACTIONS
 	database.insertTransaction(sku, warehouse, quantity, description)
-	database.updateStockAdd(sku, warehouse, quantity)
+	database.updateStock(sku, warehouse, quantity)
 	newStock := database.getStockBySkuWarehouse(sku, warehouse)
 
 	// COMMIT
@@ -58,7 +59,73 @@ func (database *Database) DoAddStock(sku string, warehouse string, quantity int,
 	return newStock
 }
 
+func (database *Database) GetStock(sku string, warehouse string) map[string]int {
+	rows := database.getQueryStock(sku, warehouse)
+	defer rows.Close()
+
+	data := make(map[string]int)
+
+	for rows.Next() {
+		var rQuantity int
+		var rWarehouse string
+
+		if err := rows.Scan(&rWarehouse, &rQuantity); err != nil {
+			log.Fatal(err)
+		}
+
+		data[rWarehouse] = rQuantity
+	}
+
+	return data
+}
+
+func (database *Database) GetHistory(sku string, warehouse string) map[string]int {
+	rows := database.getQueryHistory(sku, warehouse)
+	defer rows.Close()
+
+	data := make(map[string]int)
+
+	for rows.Next() {
+		var rQuantity int
+		var rDate string
+		var rDescription string
+
+		if err := rows.Scan(&rDate, &rQuantity, &rDescription); err != nil {
+			log.Fatal(err)
+		}
+
+		// TODO: add description
+		data[rDate] = rQuantity
+	}
+
+	return data
+}
+
 // PRIVATE
+
+func (database *Database) getQueryHistory(sku string, warehouse string) *sql.Rows {
+	sql := "SELECT inserted_at, quantity, description FROM transaction WHERE sku = ?"
+	if warehouse == "" {
+		rows, _ := database.DB.Query(sql, sku)
+		return rows
+	} else {
+		sql += " AND warehouse = ?"
+		rows, _ := database.DB.Query(sql, sku, warehouse)
+		return rows
+	}
+}
+
+func (database *Database) getQueryStock(sku string, warehouse string) *sql.Rows {
+	sql := "SELECT warehouse, quantity FROM stock WHERE sku = ?"
+	if warehouse == "" {
+		rows, _ := database.DB.Query(sql, sku)
+		return rows
+	} else {
+		sql += " AND warehouse = ?"
+		rows, _ := database.DB.Query(sql, sku, warehouse)
+		return rows
+	}
+}
 
 func (database *Database) insertTransaction(sku string, warehouse string, quantity int, description string) {
 	// INSERT transaction
@@ -70,7 +137,7 @@ func (database *Database) insertTransaction(sku string, warehouse string, quanti
 
 }
 
-func (database *Database) updateStockAdd(sku string, warehouse string, quantity int) {
+func (database *Database) updateStock(sku string, warehouse string, quantity int) {
 	sql := `
 		INSERT INTO stock (sku, warehouse, quantity)
 		VALUES ($1, $2, $3)

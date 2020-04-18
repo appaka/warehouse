@@ -25,7 +25,7 @@ type App struct {
 	db database.Database
 }
 
-type AddStockResponse struct {
+type UpdateStockResponse struct {
 	Success   bool   `json:"success"`
 	Message   string `json:"message"`
 	Sku       string `json:"sku"`
@@ -33,15 +33,18 @@ type AddStockResponse struct {
 	Quantity  int    `json:"quantity"`
 }
 
-type StockList struct {
-	Warehouse string `json:"warehouse"`
-	Quantity  int    `json:"quantity"`
-}
 type GetStockResponse struct {
-	Success bool        `json:"success"`
-	Message string      `json:"message"`
-	Sku     string      `json:"sku"`
-	Stock   []StockList `json:"data"`
+	Success bool           `json:"success"`
+	Message string         `json:"message"`
+	Sku     string         `json:"sku"`
+	Data    map[string]int `json:"data"`
+}
+
+type GetHistoryResponse struct {
+	Success bool           `json:"success"`
+	Message string         `json:"message"`
+	Sku     string         `json:"sku"`
+	Data    map[string]int `json:"data"`
 }
 
 func getenv(key, fallback string) string {
@@ -76,11 +79,8 @@ func (app *App) Init() {
 	//	GET stock/{sku}/{warehouse} --> get stock on that warehouse
 	router.HandleFunc(baseUri+"/stock/{sku}/{warehouse}", app.apiGetStock).Methods("GET")
 
-	//	POST stock/{sku}/{warehouse}/{quantity} --> add stock to this product on this warehouse
-	router.HandleFunc(baseUri+"/stock/{sku}/{warehouse}/{quantity}", app.apiAddStock).Methods("POST")
-
-	//	DELETE stock/{sku}/{warehouse}/{quantity} --> subtract stock to this product on this warehouse
-	router.HandleFunc(baseUri+"/stock/{sku}/{warehouse}/{quantity}", app.apiSubStock).Methods("DELETE")
+	//	POST stock/{sku}/{warehouse}/{quantity} --> add/remove stock to this product on this warehouse
+	router.HandleFunc(baseUri+"/stock/{sku}/{warehouse}/{quantity}", app.apiUpdateStock).Methods("POST")
 
 	//	GET history/{sku} --> get stock history of this product
 	router.HandleFunc(baseUri+"/history/{sku}", app.apiGetHistory).Methods("GET")
@@ -102,29 +102,28 @@ func (app *App) log(message string) {
 }
 
 // POST http://localhost:8000/api/stock/{sku}/{warehouse}/{quantity}
-func (app *App) apiAddStock(w http.ResponseWriter, r *http.Request) {
+func (app *App) apiUpdateStock(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	sku := params["sku"]
 	warehouse := params["warehouse"]
 	strQuantity := params["quantity"]
 	quantity, _ := strconv.Atoi(strQuantity)
 
-	// get description from body
 	bodyBuffer := new(bytes.Buffer)
 	_, _ = bodyBuffer.ReadFrom(r.Body)
 	description := bodyBuffer.String()
 
-	app.log(fmt.Sprintf("adding stock (%d) to %s@%s (%s)", quantity, sku, warehouse, description))
+	app.log(fmt.Sprintf("updating stock (%d) to %s@%s (%s)", quantity, sku, warehouse, description))
 
 	// save data to database
-	newStock := app.db.DoAddStock(sku, warehouse, quantity, description)
+	newStock := app.db.DoUpdateStock(sku, warehouse, quantity, description)
 
 	app.log(fmt.Sprintf("new stock for %s@%s = %d", sku, warehouse, newStock))
 
 	// build response
-	response := AddStockResponse{
+	response := UpdateStockResponse{
 		Success:   true,
-		Message:   fmt.Sprintf("Stock added (%d) to %s on %s! New stock = %d", quantity, sku, warehouse, newStock),
+		Message:   fmt.Sprintf("Stock updated (%d) to %s@%s = %d", quantity, sku, warehouse, newStock),
 		Sku:       sku,
 		Warehouse: warehouse,
 		Quantity:  newStock,
@@ -138,21 +137,53 @@ func (app *App) apiAddStock(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// DELETE http://localhost:8000/api/stock/{sku}/{warehouse}/{quantity}
-func (app *App) apiSubStock(w http.ResponseWriter, r *http.Request) {
-	// TODO
-}
-
 // GET http://localhost:8000/api/stock/{sku}
 // GET http://localhost:8000/api/stock/{sku}/{warehouse}
 func (app *App) apiGetStock(w http.ResponseWriter, r *http.Request) {
-	// TODO
+	params := mux.Vars(r)
+	sku := params["sku"]
+	warehouse := params["warehouse"]
+
+	data := app.db.GetStock(sku, warehouse)
+
+	response := GetStockResponse{
+		Success: true,
+		Message: fmt.Sprintf("Stock for %s@%s", sku, warehouse),
+		Sku:     sku,
+		Data:    data,
+	}
+
+	// send response
+	w.Header().Set("Content-Type", "application/json")
+	encodeErr := json.NewEncoder(w).Encode(response)
+	if encodeErr != nil {
+		log.Fatal(encodeErr)
+	}
 }
 
 // GET http://localhost:8000/api/history/{sku}
 // GET http://localhost:8000/api/history/{sku}/{warehouse}
 func (app *App) apiGetHistory(w http.ResponseWriter, r *http.Request) {
-	// TODO
+	params := mux.Vars(r)
+	sku := params["sku"]
+	warehouse := params["warehouse"]
+
+	data := app.db.GetHistory(sku, warehouse)
+
+	// TODO create proper response
+	response := GetHistoryResponse{
+		Success: true,
+		Message: fmt.Sprintf("History for %s@%s", sku, warehouse),
+		Sku:     sku,
+		Data:    data,
+	}
+
+	// send response
+	w.Header().Set("Content-Type", "application/json")
+	encodeErr := json.NewEncoder(w).Encode(response)
+	if encodeErr != nil {
+		log.Fatal(encodeErr)
+	}
 }
 
 func main() {
