@@ -35,7 +35,7 @@ func (database *Database) Close() {
 
 // PUBLIC
 
-func (database *Database) DoUpdateStock(sku string, warehouse string, quantity int, description string) int {
+func (database *Database) DoUpdateStock(sku string, warehouse string, quantity int, key string) int {
 	// BEGIN
 	tx, beginErr := database.DB.Begin()
 	if beginErr != nil {
@@ -43,7 +43,7 @@ func (database *Database) DoUpdateStock(sku string, warehouse string, quantity i
 	}
 
 	// SQL TRANSACTIONS
-	database.insertTransaction(sku, warehouse, quantity, description)
+	database.insertTransaction(sku, warehouse, quantity, key)
 	database.updateStock(sku, warehouse, quantity)
 	newStock := database.getStockBySkuWarehouse(sku, warehouse)
 
@@ -88,13 +88,13 @@ func (database *Database) GetHistory(sku string, warehouse string) map[string]in
 	for rows.Next() {
 		var rQuantity int
 		var rDate string
-		var rDescription string
+		var rKey string
 
-		if err := rows.Scan(&rDate, &rQuantity, &rDescription); err != nil {
+		if err := rows.Scan(&rDate, &rQuantity, &rKey); err != nil {
 			log.Fatal(err)
 		}
 
-		// TODO: add description
+		// TODO: add key
 		data[rDate] = rQuantity
 	}
 
@@ -104,7 +104,7 @@ func (database *Database) GetHistory(sku string, warehouse string) map[string]in
 // PRIVATE
 
 func (database *Database) getQueryHistory(sku string, warehouse string) *sql.Rows {
-	sql := "SELECT inserted_at, quantity, description FROM transaction WHERE sku = $1"
+	sql := "SELECT inserted_at, quantity, key FROM transaction WHERE sku = $1"
 	if warehouse == "" {
 		rows, _ := database.DB.Query(sql, sku)
 		return rows
@@ -130,10 +130,10 @@ func (database *Database) getQueryStock(sku string, warehouse string) *sql.Rows 
 	}
 }
 
-func (database *Database) insertTransaction(sku string, warehouse string, quantity int, description string) {
+func (database *Database) insertTransaction(sku string, warehouse string, quantity int, key string) {
 	// INSERT transaction
-	transactionSql := "INSERT INTO public.transaction (sku, warehouse, quantity, description) VALUES ($1, $2, $3, $4);"
-	_, transactionErr := database.DB.Exec(transactionSql, sku, warehouse, quantity, description)
+	transactionSql := "INSERT INTO public.transaction (sku, warehouse, quantity, key) VALUES ($1, $2, $3, $4);"
+	_, transactionErr := database.DB.Exec(transactionSql, sku, warehouse, quantity, key)
 	if transactionErr != nil {
 		panic(transactionErr)
 	}

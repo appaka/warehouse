@@ -17,7 +17,7 @@ create table transaction
 	sku varchar(255),
 	warehouse varchar(255),
 	quantity integer,
-	description text,
+	key varchar(255),
 	inserted_at timestamp not null default now()
 );
 alter table transaction owner to username;
@@ -25,4 +25,5 @@ create index transaction_inserted_at_index on transaction (inserted_at);
 create index transaction_sku_index on transaction (sku);
 create index transaction_sku_warehouse_index on transaction (sku, warehouse);
 create index transaction_warehouse_index on transaction (warehouse);
+create index transaction_key_index on transaction (key);
 
