@@ -24,11 +24,22 @@ type App struct {
 	db database.Database
 }
 
+type BatchUpdateStockRequest struct {
+	Key  string                    `json:"key"`
+	Data map[string]map[string]int `json:"data"`
+}
+
 type UpdateStockRequest struct {
 	Sku         string `json:"sku"`
 	Warehouse   string `json:"warehouse"`
 	Quantity    int    `json:"quantity"`
 	Description string `json:"description"`
+}
+
+type BatchUpdateStockResponse struct {
+	Success bool                      `json:"success"`
+	Key     string                    `json:"key"`
+	Data    map[string]map[string]int `json:"data"`
 }
 
 type UpdateStockResponse struct {
@@ -91,6 +102,7 @@ func (app *App) Init() {
 	router := mux.NewRouter().StrictSlash(true)
 	router.HandleFunc(baseUri+"/stock", app.apiGetStock).Methods("GET")
 	router.HandleFunc(baseUri+"/stock", app.apiUpdateStock).Methods("POST")
+	router.HandleFunc(baseUri+"/stock/batch", app.apiBatchUpdateStock).Methods("POST")
 	router.HandleFunc(baseUri+"/history", app.apiGetHistory).Methods("GET")
 
 	// HTTP server start
@@ -105,6 +117,42 @@ func (app *App) showHeader() {
 func (app *App) log(message string) {
 	// TODO: write to log file
 	fmt.Printf("%s - %s\n", time.Now().Format(time.RFC3339), message)
+}
+
+// POST http://localhost:8000/api/stock/batch
+func (app *App) apiBatchUpdateStock(w http.ResponseWriter, r *http.Request) {
+	// get json request from body
+	request := BatchUpdateStockRequest{}
+	err := json.NewDecoder(r.Body).Decode(&request)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// build response
+	response := BatchUpdateStockResponse{
+		Success: true,
+		Key:     request.Key,
+		Data:    make(map[string]map[string]int),
+	}
+
+	// save data to database
+	// TODO: do it in just one sql transaction?
+	app.log(fmt.Sprintf("batch stock update: %s", request.Key))
+	for sku, stocks := range request.Data {
+		response.Data[sku] = make(map[string]int)
+		for warehouse, quantity := range stocks {
+			newStock := app.db.DoUpdateStock(sku, warehouse, quantity, request.Key)
+			app.log(fmt.Sprintf("new stock for %s@%s = %d", sku, warehouse, newStock))
+			response.Data[sku][warehouse] = newStock
+		}
+	}
+
+	// send response
+	w.Header().Set("Content-Type", "application/json")
+	encodeErr := json.NewEncoder(w).Encode(response)
+	if encodeErr != nil {
+		log.Fatal(encodeErr)
+	}
 }
 
 // POST http://localhost:8000/api/stock
