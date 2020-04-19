@@ -30,10 +30,10 @@ type BatchUpdateStockRequest struct {
 }
 
 type UpdateStockRequest struct {
-	Sku         string `json:"sku"`
-	Warehouse   string `json:"warehouse"`
-	Quantity    int    `json:"quantity"`
-	Description string `json:"description"`
+	Sku       string `json:"sku"`
+	Warehouse string `json:"warehouse"`
+	Quantity  int    `json:"quantity"`
+	Key       string `json:"key"`
 }
 
 type BatchUpdateStockResponse struct {
@@ -44,7 +44,7 @@ type BatchUpdateStockResponse struct {
 
 type UpdateStockResponse struct {
 	Success   bool   `json:"success"`
-	Message   string `json:"message"`
+	Key       string `json:"key"`
 	Sku       string `json:"sku"`
 	Warehouse string `json:"warehouse"`
 	Quantity  int    `json:"quantity"`
@@ -57,7 +57,6 @@ type GetStockRequest struct {
 
 type GetStockResponse struct {
 	Success bool           `json:"success"`
-	Message string         `json:"message"`
 	Sku     string         `json:"sku"`
 	Data    map[string]int `json:"data"`
 }
@@ -69,7 +68,6 @@ type GetHistoryRequest struct {
 
 type GetHistoryResponse struct {
 	Success bool           `json:"success"`
-	Message string         `json:"message"`
 	Sku     string         `json:"sku"`
 	Data    map[string]int `json:"data"`
 }
@@ -164,17 +162,15 @@ func (app *App) apiUpdateStock(w http.ResponseWriter, r *http.Request) {
 		log.Fatal(err)
 	}
 
-	app.log(fmt.Sprintf("updating stock (%d) to %s@%s (%s)", request.Quantity, request.Sku, request.Warehouse, request.Description))
-
 	// save data to database
-	newStock := app.db.DoUpdateStock(request.Sku, request.Warehouse, request.Quantity, request.Description)
-
+	app.log(fmt.Sprintf("updating stock (%d) to %s@%s (%s)", request.Quantity, request.Sku, request.Warehouse, request.Key))
+	newStock := app.db.DoUpdateStock(request.Sku, request.Warehouse, request.Quantity, request.Key)
 	app.log(fmt.Sprintf("new stock for %s@%s = %d", request.Sku, request.Warehouse, newStock))
 
 	// build response
 	response := UpdateStockResponse{
 		Success:   true,
-		Message:   fmt.Sprintf("Stock updated (%d) to %s@%s = %d", request.Quantity, request.Sku, request.Warehouse, newStock),
+		Key:       request.Key,
 		Sku:       request.Sku,
 		Warehouse: request.Warehouse,
 		Quantity:  newStock,
@@ -203,7 +199,6 @@ func (app *App) apiGetStock(w http.ResponseWriter, r *http.Request) {
 	// build response
 	response := GetStockResponse{
 		Success: true,
-		Message: fmt.Sprintf("Stock for %s@%s", request.Sku, request.Warehouse),
 		Sku:     request.Sku,
 		Data:    data,
 	}
@@ -230,7 +225,6 @@ func (app *App) apiGetHistory(w http.ResponseWriter, r *http.Request) {
 	// TODO create proper response
 	response := GetHistoryResponse{
 		Success: true,
-		Message: fmt.Sprintf("History for %s@%s", request.Sku, request.Warehouse),
 		Sku:     request.Sku,
 		Data:    data,
 	}

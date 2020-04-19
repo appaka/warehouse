@@ -10,7 +10,7 @@ a simple warehouse stock manager
 **POST /api/stock**
 ```json
 {
-	"description": "new product!",
+	"key": "new product!",
 	"sku": "P123",
 	"warehouse": "W3",
 	"quantity": 5
@@ -22,7 +22,7 @@ a simple warehouse stock manager
 **POST /api/stock**
 ```json
 {
-	"description": "purchase #9876",
+	"key": "purchase #9876",
 	"sku": "P123",
 	"warehouse": "W3",
 	"quantity": -3
@@ -34,7 +34,7 @@ a simple warehouse stock manager
 **POST /api/stock/batch**
 ```json
 {
-	"key": "order#9876",
+    "key": "order#9876",
     "data": {
       "P123": {
         "W1": -3,
@@ -77,7 +77,6 @@ returns:
 ```json
 {
     "success": true,
-    "message": "Stock for P123@",
     "sku": "P123",
     "data": {
         "W1": 1,
@@ -102,7 +101,6 @@ returns:
 ```json
 {
     "success": true,
-    "message": "Stock for P123@W3",
     "sku": "P123",
     "data": {
         "W3": 7
