@@ -104,25 +104,28 @@ func (database *Database) GetHistory(sku string, warehouse string) map[string]in
 // PRIVATE
 
 func (database *Database) getQueryHistory(sku string, warehouse string) *sql.Rows {
-	sql := "SELECT inserted_at, quantity, description FROM transaction WHERE sku = ?"
+	sql := "SELECT inserted_at, quantity, description FROM transaction WHERE sku = $1"
 	if warehouse == "" {
 		rows, _ := database.DB.Query(sql, sku)
 		return rows
 	} else {
-		sql += " AND warehouse = ?"
+		sql += " AND warehouse = $2"
 		rows, _ := database.DB.Query(sql, sku, warehouse)
 		return rows
 	}
 }
 
 func (database *Database) getQueryStock(sku string, warehouse string) *sql.Rows {
-	sql := "SELECT warehouse, quantity FROM stock WHERE sku = ?"
+	sql := "SELECT warehouse, quantity FROM stock WHERE sku = $1"
 	if warehouse == "" {
 		rows, _ := database.DB.Query(sql, sku)
 		return rows
 	} else {
-		sql += " AND warehouse = ?"
-		rows, _ := database.DB.Query(sql, sku, warehouse)
+		sql += " AND warehouse = $2"
+		rows, err := database.DB.Query(sql, sku, warehouse)
+		if err != nil {
+			log.Fatal(err)
+		}
 		return rows
 	}
 }
@@ -130,7 +133,7 @@ func (database *Database) getQueryStock(sku string, warehouse string) *sql.Rows 
 func (database *Database) insertTransaction(sku string, warehouse string, quantity int, description string) {
 	// INSERT transaction
 	transactionSql := "INSERT INTO public.transaction (sku, warehouse, quantity, description) VALUES ($1, $2, $3, $4);"
-	_, transactionErr := database.DB.Exec(transactionSql, sku, warehouse, fmt.Sprintf("+%d", quantity), description)
+	_, transactionErr := database.DB.Exec(transactionSql, sku, warehouse, quantity, description)
 	if transactionErr != nil {
 		panic(transactionErr)
 	}
