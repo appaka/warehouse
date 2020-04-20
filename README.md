@@ -111,7 +111,6 @@ returns:
 ## todo
 
 1. getting history data
-1. create Dockerfile
 1. using Redis for caching
 1. migrating to gin-gonic? (https://www.youtube.com/watch?v=LOn1GUsjOF4)
 1. new method "check" (/api/stock/check) to know if there is stock
