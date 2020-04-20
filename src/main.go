@@ -3,6 +3,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/appaka/warehouse/database"
@@ -11,7 +12,9 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"strconv"
+	"syscall"
 	"time"
 )
 
@@ -88,6 +91,19 @@ func (app *App) Init() {
 	dbName := getenv("DB_NAME", "appdatabase")
 	baseUri := getenv("BASE_URI", "/api")
 	portNumber, _ := strconv.Atoi(getenv("HTTP_PORT", "8000"))
+	logPath := getenv("LOG_PATH", "")
+
+	// Logging
+	if logPath != "" {
+		file, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0640)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer file.Close()
+		log.SetOutput(file)
+	} else {
+		log.SetOutput(os.Stdout)
+	}
 
 	// Header
 	app.showHeader()
@@ -103,18 +119,43 @@ func (app *App) Init() {
 	router.HandleFunc(baseUri+"/stock/batch", app.apiBatchUpdateStock).Methods("POST")
 	router.HandleFunc(baseUri+"/history", app.apiGetHistory).Methods("GET")
 
+	// HTTP server config
+	srv := &http.Server{
+		Handler:      router,
+		Addr:         fmt.Sprintf(":%d", portNumber),
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 10 * time.Second,
+	}
+
 	// HTTP server start
-	fmt.Printf("listening on :%d\n", portNumber)
-	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", portNumber), router))
+	go func() {
+		log.Println("Starting Server")
+		if err := srv.ListenAndServe(); err != nil {
+			log.Fatal(err)
+		}
+	}()
+
+	app.waitForShutdown(srv)
+}
+
+func (app *App) waitForShutdown(srv *http.Server) {
+	interruptChan := make(chan os.Signal, 1)
+	signal.Notify(interruptChan, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
+
+	// Block until we receive our signal.
+	<-interruptChan
+
+	// Create a deadline to wait for.
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	defer cancel()
+	_ = srv.Shutdown(ctx)
+
+	log.Println("Shutting down")
+	os.Exit(0)
 }
 
 func (app *App) showHeader() {
 	fmt.Printf("%s %d %s by %s\n", TITLE, YEAR, VERSION, AUTHOR)
-}
-
-func (app *App) log(message string) {
-	// TODO: write to log file
-	fmt.Printf("%s - %s\n", time.Now().Format(time.RFC3339), message)
 }
 
 // POST http://localhost:8000/api/stock/batch
@@ -135,12 +176,12 @@ func (app *App) apiBatchUpdateStock(w http.ResponseWriter, r *http.Request) {
 
 	// save data to database
 	// TODO: do it in just one sql transaction?
-	app.log(fmt.Sprintf("batch stock update: %s", request.Key))
+	log.Printf("batch stock update: %s", request.Key)
 	for sku, stocks := range request.Data {
 		response.Data[sku] = make(map[string]int)
 		for warehouse, quantity := range stocks {
 			newStock := app.db.DoUpdateStock(sku, warehouse, quantity, request.Key)
-			app.log(fmt.Sprintf("new stock for %s@%s = %d", sku, warehouse, newStock))
+			log.Printf("new stock for %s@%s = %d", sku, warehouse, newStock)
 			response.Data[sku][warehouse] = newStock
 		}
 	}
@@ -163,9 +204,9 @@ func (app *App) apiUpdateStock(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// save data to database
-	app.log(fmt.Sprintf("updating stock (%d) to %s@%s (%s)", request.Quantity, request.Sku, request.Warehouse, request.Key))
+	log.Printf("updating stock (%d) to %s@%s (%s)", request.Quantity, request.Sku, request.Warehouse, request.Key)
 	newStock := app.db.DoUpdateStock(request.Sku, request.Warehouse, request.Quantity, request.Key)
-	app.log(fmt.Sprintf("new stock for %s@%s = %d", request.Sku, request.Warehouse, newStock))
+	log.Printf("new stock for %s@%s = %d", request.Sku, request.Warehouse, newStock)
 
 	// build response
 	response := UpdateStockResponse{
